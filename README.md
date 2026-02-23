@@ -15,14 +15,6 @@ Modern LLM agents tend to repeat mistakes because they lack a structured way to 
 - **Semantic Memory:** A vector store of scientific facts and principles retrieved via embedding similarity. When the agent receives a question, relevant facts are fetched and injected into the prompt to ground the reasoning.
 - **Reflective Memory:** Stores the agent's self-reflections after each answer. These reflections capture what went right or wrong and are used to refine and prune the Semantic Memory over time.
 
-### How it works (5 steps)
-
-1. The Language Model (LM) encodes the user prompt into embeddings.
-2. The Retriever fetches matching semantic memories and adds them to the Reflection prompt.
-3. The LLM agent self-reflects on its output, given the reflection prompt (which includes the User Prompt, Agent Answer, Semantic Memories, and Environment Feedback).
-4. The reflection is added to the Reflection Memory.
-5. The reflection feedback refines and prunes the Semantic Memory via the Consolidation module.
-
 The benchmark used is the **ARC Challenge** dataset (science multiple-choice questions), and the framework is tested against baselines such as plain RAG, no-memory, and self-refinement approaches.
 
 ---
