@@ -1,0 +1,114 @@
+# Bridging Reflective and Semantic Memory in LLM Agents
+
+This project implements and evaluates a memory-augmented framework for LLM agents that combines two complementary memory types: **Semantic Memory** and **Reflective Memory**. The work is presented in the paper *"Bridging Reflective and Semantic Memory"* (EMAS @ AAMAS 2026).
+
+---
+
+## The Idea
+
+Modern LLM agents tend to repeat mistakes because they lack a structured way to learn from past experience. This framework addresses that by introducing two memory modules that work together:
+
+- **Semantic Memory** — a vector store of scientific facts and principles retrieved via embedding similarity. When the agent receives a question, relevant facts are fetched and injected into the prompt to ground the reasoning.
+- **Reflective Memory** — stores the agent's self-reflections after each answer. These reflections capture what went right or wrong and are used to refine and prune the Semantic Memory over time.
+
+### How it works (5 steps)
+
+```
+1. The user prompt is encoded into embeddings.
+2. The Retriever fetches matching facts from Semantic Memory.
+3. The LLM agent reasons and answers, then self-reflects given a Reflection Prompt
+   (which includes: User Prompt + Agent Answer + Semantic Memories + Environment Feedback).
+4. The reflection is stored in Reflective Memory.
+5. The Consolidation module uses the reflection feedback to refine and prune Semantic Memory.
+```
+
+The benchmark used is the **ARC Challenge** dataset (science multiple-choice questions), and the framework is tested against baselines such as plain RAG, no-memory, and self-refinement approaches.
+
+---
+
+## Setup
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/your-username/bridging-reflective-and-semantic.git
+cd bridging-reflective-and-semantic
+```
+
+### 2. Create and activate the Conda environment
+
+```bash
+conda env create -f environment.yml
+conda activate agent_lab
+```
+
+### 3. Configure the `.env` file
+
+Create a `.env` file at the root of the project with your API credentials:
+
+```env
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+> Other keys (e.g., for alternative LLM providers) can be added here as needed by the notebooks.
+
+### 4. Download and set up the ARC Challenge dataset
+
+Download the **ARC Challenge** dataset from the [Allen AI ARC page](https://allenai.org/data/arc) and place the split files inside the `dataset/` folder:
+
+```
+dataset/
+  arc_challenge_train_processed.csv
+  arc_challenge_valid_processed.csv
+  arc_challenge_test_processed.csv
+```
+
+---
+
+## Running the Experiments
+
+All experiments are implemented as Jupyter Notebooks inside the `Playground/` directory, organized by approach:
+
+| Folder | Description |
+|---|---|
+| `Playground/no_memory/` | Baseline — LLM with no memory |
+| `Playground/RAG/` | RAG-based approaches (semantic, hybrid, reflection) |
+| `Playground/Self_Refinement/` | Self-refinement variants |
+| `Playground/Dynamic_Pruning/` | Dynamic memory pruning strategies |
+
+Open and run the notebooks in order within each folder. Results and analysis notebooks are available under `results/`.
+
+---
+
+## Project Structure
+
+```
+.
+├── dataset/                  # ARC Challenge splits
+├── Playground/               # Experiment notebooks
+│   ├── no_memory/
+│   ├── RAG/
+│   ├── Self_Refinement/
+│   ├── Dynamic_Pruning/
+│   ├── prompts/              # Prompt templates
+│   └── vectorstore/          # Memory module implementations
+├── results/                  # Analysis and reporting notebooks
+├── src/                      # (WIP) Modular source code
+├── utils_notebook.py         # Shared utilities
+├── environment.yml           # Conda environment
+└── README
+```
+
+---
+
+## Citation
+
+If you use this work, please cite:
+
+```
+@inproceedings{bridging2026,
+  title     = {Bridging Reflective and Semantic Memory in LLM Agents},
+  booktitle = {EMAS Workshop @ AAMAS 2026},
+  year      = {2026}
+}
+```
