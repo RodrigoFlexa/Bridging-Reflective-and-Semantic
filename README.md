@@ -4,7 +4,7 @@ This project implements and evaluates a memory-augmented framework for LLM agent
 
 ---
 
-## The Big Picture
+## Unified Reflective-Semantic Memory Architecture
 
 ![Unified Memory Architecture](./assets/bigpicture.jpeg)
 
