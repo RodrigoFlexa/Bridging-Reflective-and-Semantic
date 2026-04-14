@@ -3,3 +3,5 @@
 dataset/*
 datasets/*
 backup/*
+results/*
+logs/*
