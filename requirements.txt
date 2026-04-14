@@ -1,0 +1,13 @@
+torch
+transformers
+datasets
+langchain
+langchain-ollama
+langchain-openai
+numpy
+pandas
+matplotlib
+
+setuptools<82
+wheel
+spacy
