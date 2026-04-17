@@ -12,7 +12,7 @@ class StructuredAnswer(BaseModel):
         description="A brief description of the reasoning process that led to the choice of the alternative"
     )
     alternative: str = Field(
-        description="Only the letter of the alternative that is the correct answer to the question (A, B, C or D)"
+        description="Only the letter of the chosen alternative (e.g. A, B, C, D, or E — use whichever letter appears in the question)"
     )
 
 
@@ -23,7 +23,7 @@ str_parser = StrOutputParser()
 json_parser = answer_json_parser
 
 FORMATTED_TEMPLATE = PromptTemplate(
-    template="""Instruction: You are an expert science tutor. Your goal is to answer the target multiple-choice question below.
+    template="""Instruction: Your goal is to answer the target multiple-choice question below.
 
 Apply relevant scientific principles - fundamental definitions and laws from your knowledge.
 
@@ -38,15 +38,13 @@ Use scientific principles to ground your facts and guide your logic.
 )
 
 SIMPLE_TEMPLATE = PromptTemplate(
-    template="""Instruction: You are an expert science tutor. Your goal is to answer the target multiple-choice question below.
+    template="""Instruction: Your goal is to answer the target multiple-choice question below.
 
-Apply relevant scientific principles - fundamental definitions and laws from your knowledge.
-
-Use scientific principles to ground your facts and guide your logic.
+Apply relevant principles - fundamental definitions and laws from your knowledge.
 
 Structure your response strictly as:
 1. **Reasoning:** Explain the step-by-step logic to reach the correct answer.
-2. **Answer:** State only the correct option letter (A, B, C, or D).
+2. **Answer:** State only the correct option letter (use whichever letter appears in the question, e.g. A, B, C, D, or E).
 
 ### TARGET QUESTION:
 {question}
@@ -83,12 +81,14 @@ STRUCTURED_CRITIQUE_TEMPLATE = PromptTemplate(
     Knowledge used to answer the question:
     {semantic_facts}
 
-    Your Answer: {answer} (This anwer is {feedback})
+    Your Answer: {answer} (This answer is {feedback})
 
     {format_instructions}
     """,
     input_variables=["question", "answer", "feedback", "semantic_facts"],
-    partial_variables={"format_instructions": critique_json_parser.get_format_instructions()},
+    partial_variables={
+        "format_instructions": critique_json_parser.get_format_instructions()
+    },
 )
 
 CRITIQUE_TEMPLATE = PromptTemplate(
@@ -99,7 +99,7 @@ CRITIQUE_TEMPLATE = PromptTemplate(
     Knowledge used to answer the question: 
     {semantic_facts}
     
-    Your Answer: {answer} (This anwer is {feedback})
+    Your Answer: {answer} (This answer is {feedback})
     """,
     input_variables=["question", "answer", "feedback", "semantic_facts"],
 )

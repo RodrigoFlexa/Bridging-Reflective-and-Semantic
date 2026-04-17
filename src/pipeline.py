@@ -21,6 +21,7 @@ from src.prompts import (
 )
 from utils.dataset_utils import (
     format_question,
+    get_alternatives_label,
     get_correct_answer,
     get_correct_answer_text,
 )
@@ -31,39 +32,44 @@ from utils.extractors_utils import extract_answer
 # ---------------------------------------------------------------------------
 
 
-def answer_question(model, question: str, structured: bool = False):
+def answer_question(model, question: str, structured: bool = True):
     """Invoca o modelo e retorna a resposta (dict se estruturada, str caso contrário)."""
     if structured:
         chain = FORMATTED_TEMPLATE | model | answer_json_parser
+        try:
+            return chain.invoke({"question": question})
+        except Exception:
+            # Fallback: tenta extrair resposta em modo não-estruturado
+            chain_fallback = SIMPLE_TEMPLATE | model | str_parser
+            return chain_fallback.invoke({"question": question})
     else:
         chain = SIMPLE_TEMPLATE | model | str_parser
-    return chain.invoke({"question": question})
+        return chain.invoke({"question": question})
 
 
 def detect_answer(
     response,
     valid_labels=None,
     judge=None,
-    structured: bool = False,
+    structured: bool = True,
     question: str = None,
     debug: bool = False,
 ) -> str:
     """Extrai a letra da resposta a partir do output do modelo."""
-    if valid_labels is None:
-        valid_labels = ["A", "B", "C", "D"]
 
     if structured:
         if isinstance(response, dict) and "alternative" in response:
             return response["alternative"]
         return "N/A"
-
-    return extract_answer(
-        judge,
-        response,
-        valid_labels=valid_labels,
-        question=question,
-        debug=debug,
-    )
+    else:
+        # print("Indo para o judge")
+        return extract_answer(
+            judge,
+            response,
+            valid_labels=valid_labels,
+            question=question,
+            debug=debug,
+        )
 
 
 def evaluate_answer(predicted: str, correct: str) -> bool:
@@ -75,8 +81,9 @@ def generate_critique(
     question: str,
     answer: str,
     correct: str,
-    structured: bool = False,
+    structured: bool = True,
     feedback: str = None,
+    semantic_facts: str = "",
 ) -> str:
     if structured:
         chain = STRUCTURED_CRITIQUE_TEMPLATE | model | critique_json_parser
@@ -88,7 +95,7 @@ def generate_critique(
             "question": question,
             "answer": answer,
             "feedback": feedback,
-            "semantic_facts": "No facts provided",  # Placeholder, to be replaced with actual facts if needed
+            "semantic_facts": semantic_facts,
         }
     )
 
@@ -102,10 +109,9 @@ def run_dataset(
     model,
     dataset,
     judge,
-    structured: bool = False,
+    structured: bool = True,
     debug: bool = False,
     generate_critique_flag: bool = False,
-    generate_fact_flag: bool = False,
 ) -> dict:
     """
     Roda o modelo sobre todas as amostras do dataset.
@@ -117,18 +123,20 @@ def run_dataset(
     output = {}
     acertos = []
     loop = tqdm(range(len(dataset)), desc="Avaliando")
-
     for i in loop:
         question = format_question(dataset[i])
+        labels = get_alternatives_label(dataset[i])
         full_answer = answer_question(model, question, structured)
 
         correct_alt = get_correct_answer(dataset[i])
         correct_text = get_correct_answer_text(dataset[i])
+
         predicted_alt = detect_answer(
             full_answer,
             judge=judge,
             structured=structured,
             question=question,
+            valid_labels=labels,
             debug=debug,
         )
         acerto = evaluate_answer(predicted_alt, correct_alt)
@@ -148,30 +156,18 @@ def run_dataset(
         acc = sum(acertos) / len(acertos)
         loop.set_postfix(acc=f"{acc:.1%}")
 
+        output[i]["critique"] = ""
         if generate_critique_flag and not acerto:
-            # feedback_type = "basic"
-            # if feedback_type == "basic":
-            #     feedback = "correta" if acerto else "incorreta"
-            # elif feedback_type == "detailed":
-            #     feedback = f"The correct answer was {correct_alt} ({correct_text}), but you answered {predicted_alt}."
-
-            simple_feedback = "correta" if acerto else "incorreta"
-            detailed_feedback = f"The correct answer was {correct_alt} ({correct_text}), but you answered {predicted_alt}."
-
-            critique_basic = generate_critique(
-                model, question, full_answer, correct_alt, structured, simple_feedback
-            )
-
-            critique_detailed = generate_critique(
-                model, question, full_answer, correct_alt, structured, detailed_feedback
+            feedback = f"The correct answer was {correct_alt} ({correct_text}), but you answered {predicted_alt}."
+            critique = generate_critique(
+                model, question, full_answer, correct_alt, structured, feedback
             )
 
             if structured:
-                # critique_json_parser já retorna dict puro, não objeto Pydantic
-                output[i]["critique"] = critique_detailed.get("critique", "")
-                output[i]["scored_facts"] = critique_detailed.get("scored_facts", [])
+                output[i]["critique"] = critique.get("critique", "") if isinstance(critique, dict) else ""
+                output[i]["scored_facts"] = critique.get("scored_facts", []) if isinstance(critique, dict) else []
             else:
-                output[i]["critique"] = critique_detailed
+                output[i]["critique"] = critique
     return output
 
 
@@ -180,9 +176,18 @@ def run_dataset(
 # ---------------------------------------------------------------------------
 # Depois personalizaremos para termos datasets específicos, mas por ora só o arc é suficiente para testes.
 BUILTIN_DATASETS = {
-    "train": "datasets/arc_challenge_train.parquet",
-    "validation": "datasets/arc_challenge_validation.parquet",
-    "test": "datasets/arc_challenge_test.parquet",
+    "agievalar-dev": "datasets/agievalar/dev.parquet",
+    "agievalar-test": "datasets/agievalar/test.parquet",
+    "aqua-train": "datasets/aqua/train.parquet",
+    "aqua-test": "datasets/aqua/test.parquet",
+    "aqua-validation": "datasets/aqua/validation.parquet",
+    "arc-train": "datasets/arc/arc_train.parquet",
+    "arc-test": "datasets/arc/arc_test.parquet",
+    "arc-validation": "datasets/arc/arc_validation.parquet",
+    "gsm8k-train": "datasets/gsm8k/train.parquet",
+    "gsm8k-test": "datasets/gsm8k/test.parquet",
+    "mmlu-test": "datasets/mmlu/test.parquet",
+    "mmlu-validation": "datasets/mmlu/validation.parquet",
 }
 
 
@@ -244,7 +249,13 @@ def save_results(results: dict, output_path: str, model_name: str, dataset_name:
 
     # CSV resumo por questão
     csv_file = path / f"{model_name.replace(':', '_')}_{dataset_name}.csv"
-    fieldnames = ["index", "correct_answer_alt", "predicted_alt", "flag_acerto"]
+    fieldnames = [
+        "index",
+        "correct_answer_alt",
+        "predicted_alt",
+        "flag_acerto",
+        "critique",
+    ]
     with open(csv_file, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -255,6 +266,7 @@ def save_results(results: dict, output_path: str, model_name: str, dataset_name:
                     "correct_answer_alt": row["correct_answer_alt"],
                     "predicted_alt": row["predicted_alt"],
                     "flag_acerto": row["flag_acerto"],
+                    "critique": row.get("critique", ""),
                 }
             )
 

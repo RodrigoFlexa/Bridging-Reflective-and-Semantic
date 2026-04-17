@@ -47,8 +47,8 @@ def parse_args():
     # Modelo principal
     parser.add_argument(
         "--model",
-        default="llama3.1:latest",
-        help="Nome do modelo a avaliar (padrão: llama3.1:latest).",
+        default="llama3.1:8b",
+        help="Nome do modelo a avaliar (padrão: llama3.1:8b).",
     )
     parser.add_argument(
         "--provider",
@@ -66,21 +66,29 @@ def parse_args():
     # Modelo juiz (para extração de resposta em modo não-estruturado)
     parser.add_argument(
         "--judge",
-        default="llama3.1:latest",
-        help="Modelo usado como juiz para extrair a resposta (padrão: llama3.1:latest).",
+        default="gpt-4o-mini",
+        help="Modelo usado como juiz para extrair a resposta (padrão: gpt-4o-mini).",
     )
     parser.add_argument(
         "--judge-provider",
-        default="ollama",
+        default="openai",
         choices=["ollama", "openai"],
-        help="Provedor do modelo juiz (padrão: ollama).",
+        help="Provedor do modelo juiz (padrão: openai).",
     )
 
     # Dataset
     parser.add_argument(
         "--dataset",
-        default="validation",
-        help="Dataset a usar: 'train', 'validation', 'test' ou caminho para .parquet (padrão: validation).",
+        default="gsm8k-train",
+        help="Dataset a usar: (padrão: gsm8k-train).",
+    )
+
+    parser.add_argument(
+        "--question-limit",
+        type=int,
+        default=None,
+        dest="question_limit",
+        help="Limite máximo de perguntas a processar. Sobrepõe --samples e --pct.",
     )
     parser.add_argument(
         "--samples",
@@ -94,7 +102,7 @@ def parse_args():
         default=10.0,
         metavar="PERCENT",
         help="Porcentagem do dataset a usar, ex: 0.1 (10%%) ou 50 (50%%) (padrão: 10). "
-        "Ignorado se --samples for fornecido.",
+        "Ignorado se --samples ou --question-limit for fornecido.",
     )
 
     # Modo de resposta
@@ -108,9 +116,9 @@ def parse_args():
     parser.add_argument(
         "--critique",
         type=_bool,
-        default=True,
+        default=False,
         metavar="BOOL",
-        help="Gera auto-crítica após cada resposta (true/false, padrão: true).",
+        help="Gera auto-crítica após cada resposta (true/false, padrão: false).",
     )
 
     # Saída
@@ -134,7 +142,9 @@ def main():
     print(f"\n{'=' * 60}")
     print(f"  Modelo     : {args.model} [{args.provider}]")
     print(f"  Juiz       : {args.judge} [{args.judge_provider}]")
-    if args.samples:
+    if args.question_limit:
+        size_label = f"{args.question_limit} perguntas (limite)"
+    elif args.samples:
         size_label = f"{args.samples} amostras"
     elif args.pct is not None:
         pct_val = args.pct if args.pct > 1 else args.pct * 100
@@ -154,7 +164,8 @@ def main():
 
     # Carrega dataset
     print(f"Carregando dataset '{args.dataset}'...")
-    dataset = load_dataset(args.dataset, samples=args.samples, pct=args.pct)
+    effective_samples = args.question_limit if args.question_limit is not None else args.samples
+    dataset = load_dataset(args.dataset, samples=effective_samples, pct=args.pct)
     print(f"  {len(dataset)} amostras carregadas.\n")
 
     # Roda o pipeline

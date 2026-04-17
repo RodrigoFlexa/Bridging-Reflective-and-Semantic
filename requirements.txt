@@ -11,3 +11,9 @@ matplotlib
 setuptools<82
 wheel
 spacy
+
+
+accelerate 
+huggingface-hub  
+openai 
+faiss-cpu 
